@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>منصة تيـرا سبيس | جلساتي</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body class="bg-gray-100">
+    <!-- شريط التنقل -->
+    <nav class="bg-white shadow-lg">
+        <div class="max-w-7xl mx-auto px-4">
+            <div class="flex justify-between items-center h-16">
+                <a href="homeexpert.html" class="text-xl font-bold text-gray-800">تيـرا سبيس</a>
+                <a href="homeexpert.html" class="text-gray-600 hover:text-blue-500 px-3 py-2 rounded-md">العودة إلى لوحة التحكم</a>
+                <a href="sessions.html" class="text-gray-600 hover:text-blue-500 px-3 py-2 rounded-md">جلساتي</a>
+            </div>
+        </div>
+    </nav>
+
+    <!-- المحتوى الرئيسي -->
+    <main class="max-w-7xl mx-auto py-6 px-4">
+        <h1 class="text-2xl font-bold text-gray-800 mb-6">جلساتي</h1>
+        <div id="sessionsList" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <!-- سيتم ملء هذا القسم بالجلسات -->
+            <p class="text-gray-500">جاري تحميل الجلسات...</p>
+        </div>
+    </main>
+
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyAA6y8TFRWreu6Pd1AZyqvjAEh9BX4g6_E",
+            authDomain: "teerra-space.firebaseapp.com",
+            projectId: "teerra-space",
+            storageBucket: "teerra-space.firebasestorage.app",
+            messagingSenderId: "416330751201",
+            appId: "1:416330751201:web:233fb1abc5771548fe2ba0"
+        };
+
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const db = firebase.firestore();
+
+        // تحميل الجلسات الخاصة بالخبير
+        async function loadSessions() {
+            const sessionsList = document.getElementById('sessionsList');
+            sessionsList.innerHTML = '<p class="text-gray-500 text-center"><i class="fas fa-spinner fa-spin ml-2"></i> جاري تحميل الجلسات...</p>';
+
+            try {
+                const user = auth.currentUser;
+                if (!user) return;
+
+                const sessionsSnapshot = await db.collection('sessions')
+                    .where('expertId', '==', user.uid)
+                    .orderBy('date', 'desc')
+                    .get();
+
+                if (sessionsSnapshot.empty) {
+                    sessionsList.innerHTML = `
+                        <div class="col-span-full text-center py-10">
+                            <div class="bg-white p-6 rounded-lg shadow-md max-w-md mx-auto">
+                                <i class="fas fa-calendar-times text-4xl text-gray-400 mb-4"></i>
+                                <h3 class="text-xl font-bold text-gray-800 mb-2">لا توجد جلسات</h3>
+                                <p class="text-gray-600 mb-4">لم تقم بإضافة أي جلسات حتى الآن</p>
+                            </div>
+                        </div>`;
+                    return;
+                }
+
+                let sessionsHTML = '';
+                for (const doc of sessionsSnapshot.docs) {
+                    const session = doc.data();
+                    sessionsHTML += `
+                        <div class="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow duration-300">
+                            <div class="p-6">
+                                <h3 class="text-xl font-bold text-gray-800 mb-2">${session.title || 'جلسة بدون عنوان'}</h3>
+                                <p class="text-gray-600 mb-4">${session.description || 'لا يوجد وصف'}</p>
+                                <div class="text-sm text-gray-500">
+                                    <i class="fas fa-calendar-alt ml-1"></i>
+                                    ${session.date ? new Date(session.date.toDate()).toLocaleDateString() : 'غير محدد'}
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                }
+
+                sessionsList.innerHTML = sessionsHTML;
+            } catch (error) {
+                console.error('Error loading sessions:', error);
+                sessionsList.innerHTML = `
+                    <div class="col-span-full text-center py-10">
+                        <div class="bg-red-50 p-6 rounded-lg shadow-md max-w-md mx-auto">
+                            <i class="fas fa-exclamation-circle text-4xl text-red-500 mb-4"></i>
+                            <h3 class="text-xl font-bold text-red-800 mb-2">حدث خطأ</h3>
+                            <p class="text-red-600">عذراً، حدث خطأ أثناء تحميل الجلسات</p>
+                        </div>
+                    </div>`;
+            }
+        }
+
+        // التحقق من حالة تسجيل الدخول وتحميل الجلسات
+        auth.onAuthStateChanged((user) => {
+            if (!user) {
+                window.location.replace('login.html');
+            } else {
+                loadSessions();
+            }
+        });
+    </script>
+</body>
+</html>

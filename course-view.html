@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>متابعة الدورة | تيرا سبيس</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+   
+    <style>
+        :root {
+            --primary-color: #4a90e2;
+            --secondary-color: #357abd;
+            --dark-bg: #1a1a1a;
+            --card-bg: #2a2a2a;
+            --text-primary: #ffffff;
+            --text-secondary: #a0aec0;
+        }
+
+        body {
+            font-family: 'Tajawal', sans-serif;
+            background: linear-gradient(135deg, var(--dark-bg), #2d3748);
+            min-height: 100vh;
+            color: var(--text-primary);
+        }
+
+        .video-container {
+            position: relative;
+            padding-bottom: 56.25%;
+            height: 0;
+            overflow: hidden;
+            border-radius: 1rem;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+            background: #000;
+            transition: transform 0.3s ease;
+        }
+
+        .video-container:hover {
+            transform: scale(1.01);
+        }
+
+        .course-card {
+            background: var(--card-bg);
+            border-radius: 1rem;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .lesson-item {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 0.5rem;
+            padding: 1rem;
+            margin-bottom: 0.5rem;
+            transition: all 0.3s ease;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .lesson-item:hover {
+            background: rgba(255, 255, 255, 0.1);
+            transform: translateX(-5px);
+        }
+
+        .lesson-item.active {
+            background: var(--primary-color);
+            border-color: var(--primary-color);
+        }
+
+        .progress-container {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 1rem;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .progress-bar {
+            height: 8px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            background: linear-gradient(to right, var(--primary-color), var(--secondary-color));
+            height: 100%;
+            border-radius: 4px;
+            transition: width 0.5s ease;
+        }
+
+        .notes-section {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 1rem;
+            padding: 1.5rem;
+            margin-top: 2rem;
+        }
+
+        textarea {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 0.5rem;
+            color: var(--text-primary);
+            resize: vertical;
+            transition: all 0.3s ease;
+        }
+
+        textarea:focus {
+            outline: none;
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 2px rgba(74, 144, 226, 0.2);
+        }
+
+        .btn {
+            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+            color: white;
+            padding: 0.75rem 1.5rem;
+            border-radius: 0.5rem;
+            border: none;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(74, 144, 226, 0.3);
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .animate-fade-in {
+            animation: fadeIn 0.5s ease-out forwards;
+        }
+    </style>
+</head>
+<body class="text-white p-6">
+    <div class="max-w-6xl mx-auto p-6">
+        <!-- شريط التنقل -->
+        <nav class="flex justify-between items-center mb-8 bg-opacity-50 backdrop-blur-md bg-gray-900 p-4 rounded-lg">
+            <div class="flex items-center space-x-4">
+                <button onclick="window.location.href='mycourses.html'" 
+                        class="btn flex items-center space-x-2">
+                    <i class="fas fa-arrow-right ml-2"></i>
+                    العودة إلى دوراتي
+                </button>
+            </div>
+            <div id="userInfo" class="flex items-center space-x-4">
+                <!-- سيتم ملؤه بواسطة JavaScript -->
+            </div>
+        </nav>
+
+        <!-- معلومات الدورة -->
+        <div class="course-card p-6 mb-8 animate-fade-in">
+            <div id="courseInfo">
+                <h1 class="text-3xl font-bold mb-4">...</h1>
+                <div class="flex items-center mb-4">
+                    <i class="fas fa-user-tie ml-2 text-primary-color"></i>
+                    <span id="instructorName" class="text-secondary">...</span>
+                </div>
+                <p id="courseDescription" class="text-gray-400">...</p>
+            </div>
+        </div>
+
+        <!-- محتوى الدورة -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <!-- قسم الفيديو والمحتوى -->
+            <div class="lg:col-span-2 space-y-6">
+                <div class="bg-gray-800 rounded-lg shadow-xl p-6">
+                    <div class="video-container mb-6">
+                        <iframe id="courseVideo" 
+                                src="" 
+                                frameborder="0" 
+                                allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture" 
+                                allowfullscreen>
+                        </iframe>
+                    </div>
+                    
+                    <div id="lessonContent" class="mt-6">
+                        <h3 id="lessonTitle" class="text-xl font-bold mb-4">عنوان الدرس</h3>
+                        <div id="lessonDescription" class="text-gray-300">
+                            وصف الدرس...
+                        </div>
+                    </div>
+
+                    <!-- قسم الملاحظات -->
+                    <div class="notes-section">
+                        <h4 class="font-bold mb-2">ملاحظاتي</h4>
+                        <textarea 
+                            id="notes" 
+                            class="w-full bg-gray-600 text-white rounded p-3 min-h-[100px]"
+                            placeholder="اكتب ملاحظاتك هنا..."></textarea>
+                        <button onclick="saveNotes()" 
+                                class="mt-2 bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded">
+                            حفظ الملاحظات
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- قائمة الدروس -->
+            <div class="lg:col-span-1">
+                <div class="course-card p-6">
+                    <h3 class="text-xl font-bold mb-4">محتويات الدورة</h3>
+                    <div class="mb-4">
+                        <div class="bg-gray-700 rounded-full h-2">
+                            <div id="progressBar" class="bg-blue-500 rounded-full h-2 transition-all" style="width: 0%"></div>
+                        </div>
+                        <p class="text-center mt-2 text-sm text-gray-400">
+                            <span id="progressText">0%</span> مكتمل
+                        </p>
+                    </div>
+                    <div id="lessonsList" class="space-y-2">
+                        <!-- سيتم إضافة الدروس هنا -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // تهيئة Firebase
+        const firebaseConfig = {
+            apiKey: "AIzaSyAA6y8TFRWreu6Pd1AZyqvjAEh9BX4g6_E",
+            authDomain: "teerra-space.firebaseapp.com",
+            projectId: "teerra-space",
+            storageBucket: "teerra-space.appspot.com",
+            messagingSenderId: "416330751201",
+            appId: "1:416330751201:web:233fb1abc5771548fe2ba0"
+        };
+
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const db = firebase.firestore();
+
+        // تحميل تفاصيل الدورة
+        async function loadCourseDetails() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const courseId = urlParams.get('id');
+            const user = auth.currentUser;
+
+            if (!courseId) {
+                alert("معرف الدورة غير موجود");
+                window.location.href = 'mycourses.html';
+                return;
+            }
+
+            try {
+                // التحقق من تسجيل المستخدم في الدورة
+                const registrationDoc = await db.collection('registrations')
+                    .where('userId', '==', user.uid)
+                    .where('courseId', '==', courseId)
+                    .where('status', '==', 'active')
+                    .get();
+
+                if (registrationDoc.empty) {
+                    alert("عذراً، أنت غير مسجل في هذه الدورة");
+                    window.location.href = 'mycourses.html';
+                    return;
+                }
+
+                // جلب بيانات الدورة من Firestore
+                const courseDoc = await db.collection('courses').doc(courseId).get();
+                if (courseDoc.exists) {
+                    const courseData = courseDoc.data();
+                    console.log("Course data:", courseData); // للتحقق من البيانات
+
+                    // تحديث معلومات الدورة
+                    document.querySelector('#courseInfo h1').textContent = courseData.title || 'عنوان الدورة غير متوفر';
+                    document.getElementById('instructorName').textContent = courseData.instructor || courseData.coach || 'المدرب غير معروف';
+                    document.getElementById('courseDescription').textContent = courseData.description || 'لا يوجد وصف متوفر';
+
+                    // تحديث الفيديو إذا كان متوفراً
+                    if (courseData.course_url) {
+                        document.getElementById('courseVideo').src = courseData.course_url;
+                    }
+
+                    // تحميل قائمة الدروس
+                    await loadLessons(courseId);
+
+                    // تحميل الملاحظات المحفوظة
+                    loadNotes();
+                } else {
+                    console.error("Course not found:", courseId);
+                    alert("الدورة غير موجودة");
+                    window.location.href = 'mycourses.html';
+                }
+            } catch (error) {
+                console.error("Error loading course:", error);
+                alert("حدث خطأ في تحميل بيانات الدورة");
+            }
+        }
+
+        // تحميل قائمة الدروس
+        async function loadLessons(courseId) {
+            try {
+                const lessonsSnapshot = await db.collection('courses')
+                    .doc(courseId)
+                    .collection('lessons')
+                    .orderBy('order', 'asc') // ترتيب الدروس حسب الترتيب إذا كان متوفراً
+                    .get();
+
+                const lessonsList = document.getElementById('lessonsList');
+                const progressBar = document.getElementById('progressBar');
+                const progressText = document.getElementById('progressText');
+
+                if (lessonsSnapshot.empty) {
+                    lessonsList.innerHTML = '<p class="text-gray-400 text-center p-4">لا توجد دروس متاحة لهذه الدورة حالياً.</p>';
+                    return;
+                }
+
+                let completedLessons = 0;
+                const lessonsHTML = lessonsSnapshot.docs.map((doc, index) => {
+                    const lesson = doc.data();
+                    if (!lesson.title || !lesson.video_url) {
+                        console.warn(`Lesson ${doc.id} is missing required fields:`, lesson);
+                    }
+                    
+                    const isCompleted = localStorage.getItem(`lesson_${courseId}_${doc.id}`) === 'completed';
+                    if (isCompleted) completedLessons++;
+
+                    return `
+                        <div class="flex items-center justify-between bg-gray-700 p-3 rounded hover:bg-gray-600 transition-colors">
+                            <span class="flex-1">${index + 1}. ${lesson.title || 'درس بدون عنوان'}</span>
+                            <button onclick="watchLesson('${courseId}', '${doc.id}', '${lesson.video_url || ''}', '${(lesson.title || '').replace(/'/g, "\\'")}', '${(lesson.description || '').replace(/'/g, "\\'")}')"
+                                    class="text-sm px-3 py-1 rounded ${isCompleted ? 'bg-green-500 text-white' : 'bg-blue-500 text-white'} hover:opacity-90">
+                                ${isCompleted ? '✔ مكتمل' : 'مشاهدة'}
+                            </button>
+                        </div>
+                    `;
+                }).join('');
+
+                lessonsList.innerHTML = lessonsHTML;
+
+                // تحديث شريط التقدم
+                const progress = Math.round((completedLessons / lessonsSnapshot.size) * 100);
+                progressBar.style.width = `${progress}%`;
+                progressText.textContent = `${progress}%`;
+            } catch (error) {
+                console.error("Error loading lessons:", error);
+                lessonsList.innerHTML = '<p class="text-red-500 text-center p-4">حدث خطأ في تحميل الدروس</p>';
+            }
+        }
+
+        // مشاهدة الدرس
+        function watchLesson(courseId, lessonId, videoUrl, title, description) {
+            // معالجة رابط YouTube
+            let embedUrl = videoUrl;
+            if (videoUrl.includes('youtube.com') || videoUrl.includes('youtu.be')) {
+                // تحويل رابط YouTube العادي إلى رابط Embed
+                const videoId = extractYouTubeId(videoUrl);
+                if (videoId) {
+                    embedUrl = `https://www.youtube.com/embed/${videoId}`;
+                }
+            }
+
+            // تحديث الفيديو والمحتوى
+            const videoFrame = document.getElementById('courseVideo');
+            videoFrame.src = embedUrl;
+            document.getElementById('lessonTitle').textContent = title;
+            document.getElementById('lessonDescription').textContent = description;
+
+            // وضع علامة مكتمل على الدرس
+            localStorage.setItem(`lesson_${courseId}_${lessonId}`, 'completed');
+
+            // إعادة تحميل قائمة الدروس لتحديث الحالة
+            loadLessons(courseId);
+        }
+
+        // إضافة وظيفة لاستخراج معرف فيديو YouTube
+        function extractYouTubeId(url) {
+            const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
+            const match = url.match(regExp);
+            return (match && match[2].length === 11) ? match[2] : null;
+        }
+
+        // حفظ الملاحظات
+        function saveNotes() {
+            const notes = document.getElementById('notes').value;
+            const courseId = new URLSearchParams(window.location.search).get('id');
+            const user = auth.currentUser;
+
+            if (user) {
+                localStorage.setItem(`notes_${courseId}_${user.uid}`, notes);
+                alert("تم حفظ الملاحظات بنجاح!");
+            }
+        }
+
+        // تحميل الملاحظات
+        function loadNotes() {
+            const courseId = new URLSearchParams(window.location.search).get('id');
+            const user = auth.currentUser;
+
+            if (user) {
+                const notes = localStorage.getItem(`notes_${courseId}_${user.uid}`);
+                if (notes) {
+                    document.getElementById('notes').value = notes;
+                }
+            }
+        }
+
+        // التحقق من تسجيل الدخول
+        auth.onAuthStateChanged((user) => {
+            if (user) {
+                loadCourseDetails();
+            } else {
+                window.location.href = 'login.html';
+            }
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>دوراتي | تيـرا سبيس</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --primary-color: #4a90e2;
+            --secondary-color: #357abd;
+            --accent-color: #64b5f6;
+            --background-color: #f0f4f8;
+            --card-bg: #ffffff;
+            --text-primary: #2d3748;
+            --text-secondary: #718096;
+        }
+
+        body {
+            background-color: var(--background-color);
+            color: var(--text-primary);
+            font-family: 'Tajawal', sans-serif;
+        }
+
+        .course-card {
+            background: var(--card-bg);
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .course-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 15px rgba(0, 0, 0, 0.1);
+        }
+
+        .progress-bar {
+            height: 6px;
+            background: #e2e8f0;
+            border-radius: 3px;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(to right, var(--primary-color), var(--accent-color));
+            transition: width 0.3s ease;
+        }
+
+        .stats-badge {
+            background: rgba(74, 144, 226, 0.1);
+            color: var(--primary-color);
+            padding: 4px 12px;
+            border-radius: 15px;
+            font-size: 0.875rem;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .animate-fade-in {
+            animation: fadeIn 0.5s ease-out forwards;
+        }
+    </style>
+</head>
+<body class="min-h-screen">
+    <nav class="bg-white shadow-sm mb-6">
+        <div class="container mx-auto px-6 py-3">
+            <div class="flex justify-between items-center">
+                <div class="flex items-center space-x-4">
+                    <button onclick="window.location.href='cor.html'" 
+                            class="flex items-center text-gray-700 hover:text-blue-500 transition duration-300">
+                        <i class="fas fa-arrow-right ml-2"></i>
+                        العودة إلى قائمة الدورات
+                    </button>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <div id="userAvatar" class="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center text-white">
+                        <i class="fas fa-user"></i>
+                    </div>
+                    <span id="userName" class="text-gray-700"></span>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container mx-auto px-6">
+        <div class="flex justify-between items-center mb-8">
+            <h1 class="text-3xl font-bold text-gray-800">دوراتي</h1>
+            <div class="stats-badge">
+                <i class="fas fa-book-reader ml-2"></i>
+                <span id="coursesCount">0</span> دورات
+            </div>
+        </div>
+        
+        <div id="my-courses" class="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <!-- سيتم ملء هذا القسم بالدورات -->
+        </div>
+    </div>
+
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-analytics-compat.js"></script>
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyAA6y8TFRWreu6Pd1AZyqvjAEh9BX4g6_E",
+            authDomain: "teerra-space.firebaseapp.com",
+            projectId: "teerra-space",
+            storageBucket: "teerra-space.appspot.com",
+            messagingSenderId: "416330751201",
+            appId: "1:416330751201:web:233fb1abc5771548fe2ba0"
+        };
+
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const db = firebase.firestore();
+
+        // التحقق من حالة المستخدم وتحميل الدورات
+        auth.onAuthStateChanged(async (user) => {
+            const userAvatar = document.getElementById('userAvatar');
+            const userName = document.getElementById('userName');
+            
+            if (user) {
+                console.log('user.uid', user.uid);
+                try {
+                    // جلب بيانات المستخدم من Firestore
+                    const userDoc = await db.collection('users').doc(user.uid).get();
+                    const userData = userDoc.data();
+                    const firstName = userData?.firstName || '';
+                    const lastName = userData?.lastName || '';
+                    const fullName = `${firstName} ${lastName}`.trim() || 'مستخدم';
+                    const initials = (firstName.charAt(0) + lastName.charAt(0)).toUpperCase();
+
+                    // تحديث الأيقونة والاسم
+                    userAvatar.innerHTML = `<span class="text-sm font-bold">${initials}</span>`;
+                    userAvatar.title = fullName;
+                    userName.textContent = fullName;
+                    
+                    loadUserCourses();
+                } catch (error) {
+                    console.error('Error fetching user data:', error);
+                    userAvatar.innerHTML = `<i class="fas fa-user"></i>`;
+                    userName.textContent = 'مستخدم';
+                }
+            } else {
+                window.location.href = 'cor.html';
+            }
+        });
+
+        async function loadUserCourses() {
+            const user = firebase.auth().currentUser;
+            if (!user) return;
+
+            const coursesContainer = document.getElementById('my-courses');
+            coursesContainer.innerHTML = 'جاري التحميل...';
+
+            try {
+                const registrations = await db.collection('registrations')
+                    .where('userId', '==', user.uid)
+                    .get();
+
+                if (registrations.empty) {
+                    coursesContainer.innerHTML = '<div class="text-center text-gray-500">لا توجد دورات مسجلة.</div>';
+                    return;
+                }
+
+                let coursesHTML = [];
+                for (const reg of registrations.docs) {
+                    const courseId = reg.data().courseId;
+                    const courseDoc = await db.collection('courses').doc(courseId).get();
+                    if (courseDoc.exists) {
+                        const course = courseDoc.data();
+                        coursesHTML.push(`
+                            <div class="course-card p-6">
+                                <h3 class="font-bold text-lg mb-2">${course.title}</h3>
+                                <p class="text-gray-600 mb-2">${course.description}</p>
+                                <button onclick="window.location.href='course-view.html?id=${courseId}'"
+                                    class="bg-blue-500 text-white px-4 py-2 rounded">متابعة الدورة</button>
+                            </div>
+                        `);
+                    }
+                }
+                coursesContainer.innerHTML = coursesHTML.join('');
+            } catch (error) {
+                coursesContainer.innerHTML = '<div class="text-red-500">حدث خطأ أثناء تحميل الدورات.</div>';
+            }
+        }
+
+        function showError(message) {
+            const coursesContainer = document.getElementById('my-courses');
+            coursesContainer.innerHTML = `
+                <div class="col-span-3 text-center py-16 animate-fade-in">
+                    <div class="text-red-500 text-4xl mb-4">
+                        <i class="fas fa-exclamation-circle"></i>
+                    </div>
+                    <p class="text-gray-600">${message}</p>
+                    <button onclick="loadUserCourses()" 
+                            class="mt-4 bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded-lg transition duration-300">
+                        <i class="fas fa-redo ml-2"></i>
+                        إعادة المحاولة
+                    </button>
+                </div>
+            `;
+        }
+    </script>
+
+    <script type="text/plain" id="firestore-rules">
+        
+    </script>
+</body>
+</html>

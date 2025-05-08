@@ -1,0 +1,11 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    match /courses/{fileName} {
+      allow read: if true; // السماح بقراءة الملفات للجميع
+      allow write: if request.auth != null 
+        && request.resource.size < 5 * 1024 * 1024 // السماح بتحميل الملفات إذا كان حجمها أقل من 5 ميجابايت
+        && request.resource.contentType.matches('image/.*'); // السماح فقط بتحميل الصور
+    }
+  }
+}
